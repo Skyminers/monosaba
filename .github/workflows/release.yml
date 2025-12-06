@@ -24,6 +24,11 @@ jobs:
           - platform: 'windows-x86_64'
             os: 'windows-latest'
             rust_target: 'x86_64-pc-windows-msvc'
+          
+          # macOS aarch64 (Apple Silicon)
+          - platform: 'macos-aarch64'
+            os: 'macos-latest'
+            rust_target: 'aarch64-apple-darwin'
 
           # macOS x86_64 (Intel)
           - platform: 'macos-x86_64'
@@ -34,6 +39,11 @@ jobs:
           - platform: 'linux-x86_64'
             os: 'ubuntu-22.04'
             rust_target: 'x86_64-unknown-linux-gnu'
+
+          # Android ARM64
+          - platform: 'android-arm64'
+            os: 'ubuntu-22.04'
+            rust_target: 'aarch64-linux-android'
 
     steps:
       - name: Checkout repository
@@ -56,7 +66,7 @@ jobs:
           workspaces: './src-tauri -> target'
 
       - name: Install dependencies (Ubuntu only)
-        if: matrix.os == 'ubuntu-22.04'
+        if: matrix.os == 'ubuntu-22.04' && !contains(matrix.platform, 'android')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -67,13 +77,33 @@ jobs:
             libssl-dev \
             pkg-config
 
+      - name: Setup Android SDK (Android only)
+        if: contains(matrix.platform, 'android')
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Java 17 (Android only)
+        if: contains(matrix.platform, 'android')
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Install Android NDK (Android only)
+        if: contains(matrix.platform, 'android')
+        run: |
+          sdkmanager "ndk;26.1.10909125"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
+          echo "NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> $GITHUB_ENV
+
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Sync assets
         run: npm run sync-assets
 
-      - name: Build Tauri app
+      - name: Build Tauri app (Desktop)
+        if: "!contains(matrix.platform, 'android')"
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -89,6 +119,7 @@ jobs:
             - Windows: 下载 `.msi` 或 `.exe` 安装包
             - macOS: 下载 `.dmg` 安装包
             - Linux: 下载 `.deb` 或 `.AppImage` 文件
+            - Android: 下载 `.apk` 文件
 
             ### 更新内容
             请查看 [Commits](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }})
@@ -100,10 +131,33 @@ jobs:
           prerelease: false
           args: --target ${{ matrix.rust_target }}
 
+      - name: Build Tauri Android APK
+        if: contains(matrix.platform, 'android')
+        run: |
+          # 初始化 Android 项目（如果需要）
+          if [ ! -d "src-tauri/gen/android" ]; then
+            npm run tauri android init
+          fi
+
+          # 构建 debug APK (无需签名)
+          npm run tauri android build -- --target ${{ matrix.rust_target }} --apk --debug
+
+      - name: Upload Android APK to Release
+        if: contains(matrix.platform, 'android')
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            src-tauri/gen/android/app/build/outputs/apk/universal/debug/*.apk
+            src-tauri/gen/android/app/build/outputs/apk/*/debug/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-artifacts
           path: |
             src-tauri/target/${{ matrix.rust_target }}/release/bundle/
+            src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           retention-days: 7
