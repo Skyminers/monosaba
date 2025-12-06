@@ -11,6 +11,9 @@ on:
         required: false
         default: 'manual-build'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build for ${{ matrix.platform }}
