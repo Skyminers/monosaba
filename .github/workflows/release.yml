@@ -77,10 +77,6 @@ jobs:
             libssl-dev \
             pkg-config
 
-      - name: Setup Android SDK (Android only)
-        if: contains(matrix.platform, 'android')
-        uses: android-actions/setup-android@v3
-
       - name: Setup Java 17 (Android only)
         if: contains(matrix.platform, 'android')
         uses: actions/setup-java@v4
@@ -88,6 +84,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'gradle'
+
+      - name: Setup Android SDK (Android only)
+        if: contains(matrix.platform, 'android')
+        uses: android-actions/setup-android@v3
 
       - name: Install Android NDK (Android only)
         if: contains(matrix.platform, 'android')
