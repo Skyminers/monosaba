@@ -44,6 +44,7 @@ jobs:
           - platform: 'android-arm64'
             os: 'ubuntu-22.04'
             rust_target: 'aarch64-linux-android'
+            android_target: 'aarch64'
 
     steps:
       - name: Checkout repository
@@ -139,7 +140,7 @@ jobs:
           fi
 
           # 构建 debug APK (无需签名)
-          npm run tauri android build -- --target ${{ matrix.rust_target }} --apk --debug
+          npm run tauri android build -- --target ${{ matrix.android_target }} --apk --debug
 
       - name: Upload Android APK to Release
         if: contains(matrix.platform, 'android')
