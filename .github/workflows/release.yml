@@ -140,7 +140,7 @@ jobs:
           fi
 
           # 构建 debug APK (无需签名)
-          npm run tauri android build -- --target ${{ matrix.android_target }} --apk --debug
+          npm run tauri android build -- --target ${{ matrix.android_target }} --apk true --debug
 
       - name: Upload Android APK to Release
         if: contains(matrix.platform, 'android')
