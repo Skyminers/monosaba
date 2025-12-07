@@ -119,11 +119,147 @@ jobs:
           # 构建 debug APK (无需签名)
           npm run tauri android build -- --target ${{ matrix.android_target }} --apk true --debug
 
-      - name: Upload build artifacts
+      - name: Verify Desktop build artifacts
+        if: "!contains(matrix.platform, 'android')"
+        shell: bash
+        run: |
+          echo "=== Verifying build artifacts for ${{ matrix.platform }} ==="
+
+          BUNDLE_DIR="src-tauri/target/${{ matrix.rust_target }}/release/bundle"
+
+          if [ ! -d "$BUNDLE_DIR" ]; then
+            echo "❌ Error: Bundle directory not found: $BUNDLE_DIR"
+            exit 1
+          fi
+
+          echo "✓ Bundle directory exists"
+          echo ""
+          echo "=== Bundle contents ==="
+          du -sh "$BUNDLE_DIR"/* || echo "No files in bundle directory"
+          echo ""
+
+          # Platform-specific validation
+          case "${{ matrix.platform }}" in
+            windows-*)
+              echo "=== Checking Windows installers ==="
+              MSI_COUNT=$(find "$BUNDLE_DIR" -name "*.msi" | wc -l)
+              NSIS_COUNT=$(find "$BUNDLE_DIR" -name "*.exe" | wc -l)
+
+              if [ $MSI_COUNT -eq 0 ] && [ $NSIS_COUNT -eq 0 ]; then
+                echo "❌ Error: No .msi or .exe installer found"
+                exit 1
+              fi
+
+              echo "✓ Found $MSI_COUNT .msi installer(s)"
+              echo "✓ Found $NSIS_COUNT .exe installer(s)"
+
+              # Check file sizes
+              find "$BUNDLE_DIR" -name "*.msi" -exec ls -lh {} \;
+              find "$BUNDLE_DIR" -name "*.exe" -exec ls -lh {} \;
+              ;;
+
+            macos-*)
+              echo "=== Checking macOS packages ==="
+              DMG_COUNT=$(find "$BUNDLE_DIR" -name "*.dmg" | wc -l)
+              APP_COUNT=$(find "$BUNDLE_DIR" -name "*.app" -type d | wc -l)
+
+              if [ $DMG_COUNT -eq 0 ] && [ $APP_COUNT -eq 0 ]; then
+                echo "❌ Error: No .dmg or .app found"
+                exit 1
+              fi
+
+              echo "✓ Found $DMG_COUNT .dmg package(s)"
+              echo "✓ Found $APP_COUNT .app bundle(s)"
+
+              # Check file sizes
+              find "$BUNDLE_DIR" -name "*.dmg" -exec ls -lh {} \;
+              find "$BUNDLE_DIR" -name "*.app" -type d -exec du -sh {} \;
+              ;;
+
+            linux-*)
+              echo "=== Checking Linux packages ==="
+              DEB_COUNT=$(find "$BUNDLE_DIR" -name "*.deb" | wc -l)
+              APPIMAGE_COUNT=$(find "$BUNDLE_DIR" -name "*.AppImage" | wc -l)
+
+              if [ $DEB_COUNT -eq 0 ] && [ $APPIMAGE_COUNT -eq 0 ]; then
+                echo "❌ Error: No .deb or .AppImage found"
+                exit 1
+              fi
+
+              echo "✓ Found $DEB_COUNT .deb package(s)"
+              echo "✓ Found $APPIMAGE_COUNT .AppImage file(s)"
+
+              # Check file sizes
+              find "$BUNDLE_DIR" -name "*.deb" -exec ls -lh {} \;
+              find "$BUNDLE_DIR" -name "*.AppImage" -exec ls -lh {} \;
+              ;;
+          esac
+
+          echo ""
+          echo "✅ Build verification passed for ${{ matrix.platform }}"
+
+      - name: Verify Android build artifacts
+        if: contains(matrix.platform, 'android')
+        shell: bash
+        run: |
+          echo "=== Verifying Android APK artifacts ==="
+
+          APK_DIR="src-tauri/gen/android/app/build/outputs/apk"
+
+          if [ ! -d "$APK_DIR" ]; then
+            echo "❌ Error: APK directory not found: $APK_DIR"
+            exit 1
+          fi
+
+          echo "✓ APK directory exists"
+          echo ""
+
+          # Find all APK files
+          APK_FILES=$(find "$APK_DIR" -name "*.apk")
+          APK_COUNT=$(echo "$APK_FILES" | grep -c "\.apk$" || echo "0")
+
+          if [ $APK_COUNT -eq 0 ]; then
+            echo "❌ Error: No APK files found"
+            exit 1
+          fi
+
+          echo "✓ Found $APK_COUNT APK file(s)"
+          echo ""
+          echo "=== APK details ==="
+
+          for apk in $APK_FILES; do
+            SIZE=$(du -h "$apk" | cut -f1)
+            echo "  - $(basename $apk): $SIZE"
+            ls -lh "$apk"
+
+            # Verify APK is at least 1MB (sanity check)
+            SIZE_BYTES=$(stat -c%s "$apk" 2>/dev/null || stat -f%z "$apk")
+            MIN_SIZE=$((1 * 1024 * 1024))  # 1 MB
+
+            if [ $SIZE_BYTES -lt $MIN_SIZE ]; then
+              echo "    ⚠️  Warning: APK size is less than 1MB, might be incomplete"
+            else
+              echo "    ✓ Size check passed"
+            fi
+          done
+
+          echo ""
+          echo "✅ Android build verification passed"
+
+      - name: Upload Desktop artifacts
+        if: "!contains(matrix.platform, 'android')"
         uses: actions/upload-artifact@v4
         with:
           name: test-build-${{ matrix.platform }}
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*
+          retention-days: 3
+
+      - name: Upload Android artifacts
+        if: contains(matrix.platform, 'android')
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-build-${{ matrix.platform }}
+          path: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           retention-days: 3

@@ -156,11 +156,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload artifacts
+      - name: Upload Desktop artifacts
+        if: "!contains(matrix.platform, 'android')"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-artifacts
           path: |
-            src-tauri/target/${{ matrix.rust_target }}/release/bundle/
+            src-tauri/target/${{ matrix.rust_target }}/release/bundle/**/*
+          retention-days: 7
+
+      - name: Upload Android artifacts
+        if: contains(matrix.platform, 'android')
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-artifacts
+          path: |
             src-tauri/gen/android/app/build/outputs/apk/**/*.apk
           retention-days: 7
