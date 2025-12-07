@@ -105,6 +105,26 @@ jobs:
       - name: Sync assets
         run: npm run sync-assets
 
+      - name: Verify assets were synced
+        shell: bash
+        run: |
+          echo "=== Checking asset synchronization ==="
+          if [ -d "src-tauri/assets" ]; then
+            echo "✓ src-tauri/assets exists"
+            du -sh src-tauri/assets
+          else
+            echo "❌ Error: src-tauri/assets directory not found"
+            exit 1
+          fi
+
+          if [ -d "public/assets" ]; then
+            echo "✓ public/assets exists"
+            du -sh public/assets
+          else
+            echo "❌ Error: public/assets directory not found"
+            exit 1
+          fi
+
       - name: Build Tauri app (Desktop)
         if: "!contains(matrix.platform, 'android')"
         uses: tauri-apps/tauri-action@v0

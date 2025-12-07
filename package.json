@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "sync-assets": "mkdir -p public/assets && cp -r src-tauri/assets/* public/assets/ 2>/dev/null || true",
+    "sync-assets": "node scripts/sync-assets.js",
     "predev": "npm run sync-assets",
     "dev": "vite",
     "prebuild": "npm run sync-assets",
