@@ -2,6 +2,7 @@ import { AssetImage } from "./components/AssetImage";
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { loadConfig } from './utils/configLoader';
 import { renderCanvas, downloadCanvasAsImage } from './utils/canvasRenderer';
+import { getAssetUrl } from './utils/assetLoader';
 import { AppConfig, StretchMode } from './types';
 import './App.css';
 
@@ -13,13 +14,6 @@ const STRETCH_MODES: Record<StretchMode, string> = {
   zoom_y: '垂直缩放',
   original: '原始尺寸',
 };
-
-// Helper function to load image - in development, use public folder
-async function loadImage(relativePath: string): Promise<string> {
-  // In development mode with Vite, public folder assets are served at root
-  // Just return the path without conversion
-  return `/${relativePath}`;
-}
 
 function App() {
   const [config, setConfig] = useState<AppConfig | null>(null);
@@ -67,7 +61,7 @@ function App() {
   useEffect(() => {
     const loadUiImage = async () => {
       try {
-        const url = await loadImage('assets/background/ui.png');
+        const url = await getAssetUrl('assets/background/ui.png');
         const uiImg = new Image();
         uiImg.crossOrigin = 'anonymous';
         uiImg.src = url;
@@ -92,7 +86,7 @@ function App() {
 
     const loadBgImage = async () => {
       try {
-        const url = await loadImage(`assets/backgrounds/${bgInfo.file}`);
+        const url = await getAssetUrl(`assets/backgrounds/${bgInfo.file}`);
         const bgImg = new Image();
         bgImg.crossOrigin = 'anonymous';
         bgImg.src = url;
@@ -116,7 +110,7 @@ function App() {
     const loadCharImage = async () => {
       try {
         const charPath = `assets/chara/${selectedChar}/${selectedChar} (${selectedEmotion}).png`;
-        const url = await loadImage(charPath);
+        const url = await getAssetUrl(charPath);
         const charImg = new Image();
         charImg.crossOrigin = 'anonymous';
         charImg.src = url;

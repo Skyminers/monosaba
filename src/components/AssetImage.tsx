@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getAssetUrl } from '../utils/assetLoader';
 
 interface AssetImageProps {
   src: string;
@@ -12,7 +13,26 @@ export function AssetImage({ src, alt, className, style }: AssetImageProps) {
   const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
-    setImageSrc(`/${src}`);
+    let cancelled = false;
+
+    // Load the asset URL asynchronously
+    getAssetUrl(src)
+      .then((url) => {
+        if (!cancelled) {
+          setImageSrc(url);
+          setError(false);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load asset:', src, err);
+        if (!cancelled) {
+          setError(true);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [src]);
 
   if (error) {
